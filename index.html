@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025年度 コーチング大会 総合管理システム | Q-MAX</title>
+    <title>2025年度 コーチング大会 最終審査 | Q-MAX</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;700;900&display=swap" rel="stylesheet">
     <style>
@@ -14,18 +14,29 @@
         .container.active { display: flex; }
         .section-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 15px; padding: 30px; margin-bottom: 20px; width: 90%; max-width: 800px; backdrop-filter: blur(10px); }
         .title-h2 { font-size: 1.5rem; margin-bottom: 20px; color: var(--gold); border-bottom: 1px solid var(--gold); padding-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
         .btn-choice { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 15px; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; }
         .btn-choice:hover:not(.voted) { background: rgba(212, 175, 55, 0.2); border-color: var(--gold); }
         .btn-choice.selected { background: var(--gold); color: #000; font-weight: bold; box-shadow: 0 0 15px var(--gold); }
         .btn-choice.voted { background: #333 !important; color: #777 !important; border-color: #444 !important; cursor: not-allowed; }
         .submit-btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 20px; font-size: 1.4rem; font-weight: bold; background: var(--gold); border: none; border-radius: 50px; cursor: pointer; transition: 0.4s; }
         .submit-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
-        .tally-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; }
-        .result-card { text-align: center; padding: 50px; border: 2px solid var(--gold); background: radial-gradient(circle, #1a1a1a 0%, #000 100%); border-radius: 20px; margin-top: 30px; width: 90%; max-width: 600px; animation: scaleUp 1s ease forwards; }
-        .winner-name { font-size: 4rem; font-weight: 900; color: #fff; text-shadow: 0 0 30px var(--gold); margin: 20px 0; }
+        
+        /* 発表画面の演出 */
+        .result-card {
+            text-align: center; padding: 40px; border: 2px solid var(--gold);
+            background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
+            border-radius: 20px; margin-top: 30px; width: 90%; max-width: 600px;
+            cursor: pointer; position: relative; transition: 0.5s;
+        }
+        .result-card:hover { transform: scale(1.02); background: radial-gradient(circle, #2a2a2a 0%, #000 100%); }
+        .winner-label { font-size: 1.2rem; color: var(--gold); letter-spacing: 0.3em; margin-bottom: 10px; }
+        .winner-name { font-size: 4rem; font-weight: 900; color: #fff; opacity: 0; transform: scale(0.5); transition: 0.8s cubic-bezier(0.17, 0.89, 0.32, 1.49); }
+        .result-card.revealed .winner-name { opacity: 1; transform: scale(1); text-shadow: 0 0 30px var(--gold); }
+        .tap-hint { font-size: 0.8rem; color: #555; margin-top: 10px; }
+        .result-card.revealed .tap-hint { display: none; }
+
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.05; cursor: pointer; color: white; }
     </style>
 </head>
@@ -35,7 +46,7 @@
     <audio id="bgm-fanfare"><source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" type="audio/mpeg"></audio>
     <canvas id="particleCanvas"></canvas>
 
-    <!-- 1. 審査員選択 & 管理ボタン -->
+    <!-- ページ1: 審査員選択 -->
     <div id="page-judge" class="container active">
         <header style="margin-top:50px; text-align: center;">
             <div style="font-size: 1rem; color: var(--gold); letter-spacing: 0.3em; margin-bottom: 10px;">株式会社キューマックス</div>
@@ -45,59 +56,39 @@
             <div class="grid" id="judge-grid"></div>
         </div>
         <div id="admin-tools" style="display:none; margin-top: 50px;">
-            <button class="submit-btn" onclick="startAdminFlow()" style="background:#fff; color:#000;">結果を確認・確定する（管理者）</button>
+            <button class="submit-btn" onclick="startAdminFlow()" style="background:#fff; color:#000;">結果を確定する（管理者）</button>
             <button onclick="resetDatabase()" style="background:none; border:none; color:red; cursor:pointer; width:100%;">全リセット</button>
         </div>
     </div>
 
-    <!-- 2. 投票画面 -->
+    <!-- ページ2: 投票画面 -->
     <div id="page-voting" class="container">
         <header style="margin-top:50px; text-align: center;"><h1 id="vote-header-name">投票</h1></header>
-        <div class="section-box">
-            <div class="title-h2">最優秀賞 選出</div>
-            <div class="grid candidate-grid" data-award="最優秀賞"></div>
+        <div id="board-votes" style="width:100%;">
+            <div class="section-box" style="margin:0 auto 20px;"><div class="title-h2">最優秀賞 選出</div><div class="grid candidate-grid" data-award="最優秀賞"></div></div>
+            <div class="section-box" style="margin:0 auto 20px;"><div class="title-h2">優秀賞 選出</div><div class="grid candidate-grid" data-award="優秀賞"></div></div>
         </div>
-        <div class="section-box">
-            <div class="title-h2">優秀賞 選出</div>
-            <div class="grid candidate-grid" data-award="優秀賞"></div>
-        </div>
-        <div id="vote-pres-section" style="display:none; width: 100%;">
-            <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">社長賞 選出</div><div class="grid candidate-grid" data-award="社長賞"></div></div>
+        <div id="pres-votes" style="width:100%; display:none;">
+            <div class="section-box" style="margin:0 auto 20px;"><div class="title-h2">社長賞 選出</div><div class="grid candidate-grid" data-award="社長賞"></div></div>
         </div>
         <button class="submit-btn" id="final-submit-btn" disabled onclick="sendToDatabase()">投票を確定する</button>
     </div>
 
-    <!-- 3. 点数一覧画面 -->
-    <div id="page-raw-tally" class="container">
-        <div class="section-box">
-            <div class="title-h2">現在の得票状況</div>
-            <div id="raw-tally-content"></div>
-            <button class="submit-btn" onclick="proceedToFinalize('優秀賞')">次へ（当選者の確定）</button>
-        </div>
-    </div>
-
-    <!-- 4. 当選者確定画面 (タイブレーク対応) -->
+    <!-- ページ3: 管理者確定画面 -->
     <div id="page-finalize-winner" class="container">
         <div class="section-box">
             <div class="title-h2" id="finalize-title">賞の確定</div>
-            <p id="finalize-instruction"></p>
+            <p id="finalize-instruction" style="margin-bottom:20px; color:#aaa;"></p>
             <div class="grid" id="finalize-choice-area"></div>
             <button class="submit-btn" id="finalize-confirm-btn" disabled onclick="confirmWinner()">この人を確定する</button>
         </div>
     </div>
 
-    <!-- 5. 最終保存 & 待機 -->
-    <div id="page-save-complete" class="container">
-        <div class="section-box" style="text-align:center; margin-top:100px;">
-            <h2>全結果の確定完了</h2>
-            <p>結果が保存されました。<br>右下の「● 集計」を押して発表を開始してください。</p>
-        </div>
-    </div>
-
-    <!-- 6. 最終結果発表 (演出) -->
+    <!-- ページ4: 結果発表 (タップ演出) -->
     <div id="page-results" class="container">
-        <header style="margin-top:50px; text-align: center;"><h1>2025年度 最終結果</h1></header>
+        <header style="margin-top:50px; text-align: center;"><h1>2025年度 最終結果発表</h1></header>
         <div id="results-display" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
+        <button class="submit-btn" onclick="location.reload()" style="margin-top:50px; background:none; border:1px solid #444; color:#666;">トップへ戻る</button>
     </div>
 
     <div class="admin-trigger" onclick="adminTally()">● 集計</div>
@@ -118,8 +109,6 @@
     async function initApp() {
         const { data } = await supabaseClient.from('votes').select('*');
         const votedJudges = data ? [...new Set(data.map(d => d.judge_name).filter(n => !n.startsWith('SYSTEM_')))] : [];
-        
-        // 全員投票が終わっていたら管理ボタンを出す
         if(votedJudges.length >= 7) document.getElementById('admin-tools').style.display = 'block';
 
         const jGrid = document.getElementById('judge-grid');
@@ -159,9 +148,8 @@
         showPage('page-voting');
         document.getElementById('vote-header-name').innerText = name + " 様";
         const isPres = (name === "吉武 直志");
-        document.getElementById('vote-pres-section').style.display = isPres ? 'block' : 'none';
-        document.getElementById('page-voting').querySelectorAll('.section-box')[0].style.display = isPres ? 'none' : 'block';
-        document.getElementById('page-voting').querySelectorAll('.section-box')[1].style.display = isPres ? 'none' : 'block';
+        document.getElementById('pres-votes').style.display = isPres ? 'block' : 'none';
+        document.getElementById('board-votes').style.display = isPres ? 'none' : 'block';
     }
 
     function updateSubmitBtn() {
@@ -181,37 +169,34 @@
     async function startAdminFlow() {
         const { data } = await supabaseClient.from('votes').select('*');
         rawData = data;
-        showPage('page-raw-tally');
-        
-        let html = "";
-        ["最優秀賞", "優秀賞"].forEach(award => {
-            html += `<h3 style='color:var(--gold)'>${award}の得票</h3>`;
-            candidates.forEach(c => {
-                const count = data.filter(v => v.award_type === award && v.candidate_name === c).length;
-                html += `<div class='tally-row'><span>${c}</span><span>${count} 票</span></div>`;
-            });
-        });
-        document.getElementById('raw-tally-content').innerHTML = html;
+        proceedToFinalize("優秀賞");
     }
 
     function proceedToFinalize(awardType) {
         currentStepAward = awardType;
         showPage('page-finalize-winner');
         document.getElementById('finalize-title').innerText = `${awardType}の確定`;
-        
-        const tally = {};
-        rawData.filter(v => v.award_type === awardType && !v.judge_name.startsWith('SYSTEM_')).forEach(v => {
-            tally[v.candidate_name] = (tally[v.candidate_name] || 0) + 1;
-        });
-
-        const max = Math.max(...Object.values(tally), 0);
-        const winners = Object.keys(tally).filter(k => tally[k] === max);
-
         const area = document.getElementById('finalize-choice-area');
         area.innerHTML = "";
         document.getElementById('finalize-confirm-btn').disabled = true;
 
-        winners.forEach(w => {
+        let options = [];
+        if(awardType === "社長賞") {
+            // 社長賞の場合は「全員」を表示
+            options = candidates;
+            document.getElementById('finalize-instruction').innerText = "社長賞の当選者を全員の中から選択してください。";
+        } else {
+            // 優秀賞・最優秀賞は得票トップ（または同点者）を表示
+            const tally = {};
+            rawData.filter(v => v.award_type === awardType && !v.judge_name.startsWith('SYSTEM_')).forEach(v => {
+                tally[v.candidate_name] = (tally[v.candidate_name] || 0) + 1;
+            });
+            const max = Math.max(...Object.values(tally), 0);
+            options = Object.keys(tally).filter(k => tally[k] === max);
+            document.getElementById('finalize-instruction').innerText = "得票数が最も高いメンバーです。確定してください。";
+        }
+
+        options.forEach(w => {
             const btn = document.createElement('div');
             btn.className = 'btn-choice'; btn.innerText = w;
             btn.onclick = () => {
@@ -226,22 +211,21 @@
 
     async function confirmWinner() {
         if(currentStepAward === "優秀賞") proceedToFinalize("最優秀賞");
-        else if(currentStepAward === "最優秀賞") {
-            const presVote = rawData.find(v => v.award_type === "社長賞");
-            winnersToSave["社長賞"] = presVote ? presVote.candidate_name : "未選出";
-            // 全てをSYSTEMとして保存
+        else if(currentStepAward === "最優秀賞") proceedToFinalize("社長賞");
+        else {
             const finalData = Object.entries(winnersToSave).map(([type, name]) => ({
                 judge_name: `SYSTEM_FINAL_${type}`, award_type: type, candidate_name: name
             }));
             await supabaseClient.from('votes').insert(finalData);
-            showPage('page-save-complete');
+            alert("全ての結果を確定しました。右下の「● 集計」から発表してください。");
+            location.reload();
         }
     }
 
     async function adminTally() {
         const { data } = await supabaseClient.from('votes').select('*');
         const saved = data.filter(v => v.judge_name.startsWith('SYSTEM_FINAL_'));
-        if(saved.length < 3) return alert("まだ確定作業が終わっていません");
+        if(saved.length < 3) return alert("まだ確定作業が終わっていません。");
 
         document.getElementById('bgm-loop').pause();
         document.getElementById('bgm-fanfare').play();
@@ -249,15 +233,25 @@
         
         const getWinner = (type) => saved.find(s => s.judge_name === `SYSTEM_FINAL_${type}`).candidate_name;
 
-        document.getElementById('results-display').innerHTML = `
-            <div class="result-card" style="border-color:var(--silver)"><div class="winner-label">優秀賞</div><div class="winner-name">${getWinner("優秀賞")}</div></div>
-            <div class="result-card"><div class="winner-label">最優秀賞</div><div class="winner-name">${getWinner("最優秀賞")}</div></div>
-            <div class="result-card" style="border-color:var(--pres)"><div class="winner-label">社長賞</div><div class="winner-name">${getWinner("社長賞")}</div></div>`;
+        const resultsHTML = [
+            { label: "優秀賞", color: "var(--silver)", name: getWinner("優秀賞") },
+            { label: "最優秀賞", color: "var(--gold)", name: getWinner("最優秀賞") },
+            { label: "社長賞", color: "var(--pres)", name: getWinner("社長賞") }
+        ].map(res => `
+            <div class="result-card" style="border-color:${res.color}" onclick="this.classList.add('revealed')">
+                <div class="winner-label" style="color:${res.color}">${res.label}</div>
+                <div class="winner-name">${res.name}</div>
+                <div class="tap-hint">TAP TO REVEAL</div>
+            </div>
+        `).join('');
+
+        document.getElementById('results-display').innerHTML = resultsHTML;
     }
 
-    async function resetDatabase() { if(confirm("全消去しますか？")) { await supabaseClient.from('votes').delete().neq('id', 0); location.reload(); } }
+    async function resetDatabase() { if(confirm("データをリセットしますか？")) { await supabaseClient.from('votes').delete().neq('id', 0); location.reload(); } }
     function showPage(id) { document.querySelectorAll('.container').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
 
+    // 背景演出
     const canvas = document.getElementById('particleCanvas');
     const ctx = canvas.getContext('2d');
     let particles = [];
@@ -269,7 +263,7 @@
         update() { this.y += this.speedY; if (this.y < -10) this.init(); }
         draw() { ctx.fillStyle = `rgba(212, 175, 55, ${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); }
     }
-    function initParticles() { for(let i=0; i<100; i++) particles.push(new P()); animate(); }
+    function initParticles() { for(let i=0; i<120; i++) particles.push(new P()); animate(); }
     function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animate); }
 
     initApp();
