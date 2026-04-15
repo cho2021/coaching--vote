@@ -8,18 +8,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;700;900&display=swap" rel="stylesheet">
     <style>
         :root { --gold: #d4af37; --silver: #c0c0c0; --pres: #e91e63; --dark: #020a18; --white: #e6f1ff; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; font-family: 'Noto Sans JP', sans-serif; color: var(--white); overflow: hidden; }
-        canvas { position: fixed; top: 0; left: 0; z-index: -1; }
-        .container { display: none; flex-direction: column; align-items: center; min-height: 100vh; width: 100%; padding-bottom: 50px; animation: fadeIn 0.5s ease; overflow-y: auto; }
+        
+        /* スクロールを許可する設定 */
+        body, html { 
+            margin: 0; padding: 0; 
+            width: 100%; 
+            min-height: 100%;
+            background-color: #000; 
+            font-family: 'Noto Sans JP', sans-serif; 
+            color: var(--white); 
+            overflow-y: auto; /* 縦スクロールを有効化 */
+            overflow-x: hidden; 
+        }
+
+        /* 背景は常に背後に固定 */
+        canvas { position: fixed; top: 0; left: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
+
+        .container { 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            width: 100%; 
+            min-height: 100vh;
+            padding-bottom: 120px; /* 下部に余白を確保 */
+            box-sizing: border-box;
+            animation: fadeIn 0.5s ease; 
+        }
         .container.active { display: flex; }
+
         .section-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 15px; padding: 30px; margin-bottom: 20px; width: 90%; max-width: 800px; backdrop-filter: blur(10px); }
         .title-h2 { font-size: 1.5rem; margin-bottom: 20px; color: var(--gold); border-bottom: 1px solid var(--gold); padding-bottom: 10px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
         .btn-choice { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 15px; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; }
         .btn-choice:hover:not(.voted) { background: rgba(212, 175, 55, 0.2); border-color: var(--gold); }
         .btn-choice.selected { background: var(--gold); color: #000; font-weight: bold; box-shadow: 0 0 15px var(--gold); }
         .btn-choice.voted { background: #333 !important; color: #777 !important; border-color: #444 !important; cursor: not-allowed; }
         .btn-choice.voted::after { content: " (投票済)"; font-size: 0.7rem; display: block; }
+
         .submit-btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 20px; font-size: 1.4rem; font-weight: bold; background: var(--gold); border: none; border-radius: 50px; cursor: pointer; transition: 0.4s; }
         .submit-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
         
@@ -27,23 +53,22 @@
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(212, 175, 55, 0.2); }
         th { color: var(--gold); font-size: 0.9rem; }
 
-        /* 発表スライド演出 */
-        .award-display-area { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 75vh; width: 100%; }
+        .award-display-area { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; width: 100%; padding: 20px 0; }
         .result-card {
             text-align: center; padding: 80px 40px; border: 4px solid var(--gold); background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
             border-radius: 40px; width: 85%; max-width: 700px; cursor: pointer; transition: 0.5s;
         }
-        .winner-label { font-size: 2.8rem; font-weight: 900; letter-spacing: 0.2em; margin-bottom: 30px; } /* タイトルを大きく */
+        .winner-label { font-size: 2.8rem; font-weight: 900; letter-spacing: 0.2em; margin-bottom: 30px; }
         .winner-name { font-size: 5.5rem; font-weight: 900; color: #fff; opacity: 0; transform: scale(0.2); transition: 1.2s cubic-bezier(0.17, 0.89, 0.32, 1.49); }
         .result-card.revealed .winner-name { opacity: 1; transform: scale(1); text-shadow: 0 0 40px var(--gold); }
         .tap-hint { font-size: 1.2rem; color: var(--gold); margin-top: 30px; letter-spacing: 0.5em; animation: flash 2s infinite; }
-        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
-
-        .nav-btn { position: fixed; bottom: 50px; right: 50px; padding: 18px 50px; background: #fff; color: #000; border: none; border-radius: 50px; font-size: 1.4rem; font-weight: 900; cursor: pointer; display: none; box-shadow: 0 0 30px rgba(255,255,255,0.4); z-index: 100; transition: 0.3s; }
+        
+        .nav-btn { position: fixed; bottom: 40px; right: 40px; padding: 18px 50px; background: #fff; color: #000; border: none; border-radius: 50px; font-size: 1.4rem; font-weight: 900; cursor: pointer; display: none; box-shadow: 0 0 30px rgba(255,255,255,0.4); z-index: 100; transition: 0.3s; }
         .nav-btn:hover { transform: scale(1.1); background: var(--gold); }
 
+        @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.05; cursor: pointer; color: white; }
+        .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.05; cursor: pointer; color: white; z-index: 1000; }
     </style>
 </head>
 <body>
@@ -59,21 +84,21 @@
             <h1>審査員選択</h1>
         </header>
         <div class="section-box"><div class="grid" id="judge-grid"></div></div>
-        <div id="admin-tools" style="display:none; margin-top: 50px;">
+        <div id="admin-tools" style="display:none; margin-top: 50px; width: 90%; max-width: 800px;">
             <button class="submit-btn" onclick="startAdminFlow()" style="background:#fff; color:#000;">結果を確定する（管理者）</button>
-            <button onclick="resetDatabase()" style="background:none; border:none; color:red; cursor:pointer; width:100%;">全リセット</button>
+            <button onclick="resetDatabase()" style="background:none; border:none; color:red; cursor:pointer; width:100%; padding: 20px;">全リセット</button>
         </div>
     </div>
 
     <!-- 2. 投票画面 -->
     <div id="page-voting" class="container">
         <header style="margin-top:50px; text-align: center;"><h1 id="vote-header-name">投票</h1></header>
-        <div id="board-votes" style="width:100%;">
-            <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">最優秀賞 選出</div><div class="grid candidate-grid" data-award="最優秀賞"></div></div>
-            <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">優秀賞 選出</div><div class="grid candidate-grid" data-award="優秀賞"></div></div>
+        <div id="board-votes" style="width:100%; display: flex; flex-direction: column; align-items: center;">
+            <div class="section-box"><div class="title-h2">最優秀賞 選出</div><div class="grid candidate-grid" data-award="最優秀賞"></div></div>
+            <div class="section-box"><div class="title-h2">優秀賞 選出</div><div class="grid candidate-grid" data-award="優秀賞"></div></div>
         </div>
-        <div id="pres-votes" style="width:100%; display:none;">
-            <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">社長賞 選出</div><div class="grid candidate-grid" data-award="社長賞"></div></div>
+        <div id="pres-votes" style="width:100%; display:none; flex-direction: column; align-items: center;">
+            <div class="section-box"><div class="title-h2">社長賞 選出</div><div class="grid candidate-grid" data-award="社長賞"></div></div>
         </div>
         <button class="submit-btn" id="final-submit-btn" disabled onclick="sendToDatabase()">投票を確定する</button>
     </div>
@@ -101,13 +126,13 @@
         </div>
     </div>
 
-    <!-- 5. 最終発表 (スライド演出) -->
+    <!-- 5. 最終発表 -->
     <div id="page-results" class="container">
         <header style="margin-top:50px; text-align: center;"><h1 id="result-award-title" style="letter-spacing: 0.5em; opacity: 0.5;">RESULT</h1></header>
         <div class="award-display-area">
             <div class="result-card" id="active-card" onclick="revealWinner()">
                 <div class="winner-label" id="active-label">優秀賞</div>
-                <div class="winner-name" id="active-name"></div> <!-- 最初は空 -->
+                <div class="winner-name" id="active-name"></div>
                 <div class="tap-hint" id="active-hint">CLICK TO REVEAL</div>
             </div>
         </div>
@@ -175,9 +200,8 @@
         showPage('page-voting');
         document.getElementById('vote-header-name').innerText = name + " 様";
         const isPres = (name === "吉武 直志");
-        document.getElementById('pres-votes').style.display = isPres ? 'block' : 'none';
-        document.getElementById('page-voting').querySelectorAll('.section-box')[0].style.display = isPres ? 'none' : 'block';
-        document.getElementById('page-voting').querySelectorAll('.section-box')[1].style.display = isPres ? 'none' : 'block';
+        document.getElementById('pres-votes').style.display = isPres ? 'flex' : 'none';
+        document.getElementById('board-votes').style.display = isPres ? 'none' : 'flex';
     }
 
     function updateSubmitBtn() {
@@ -221,7 +245,7 @@
             const max = Math.max(...Object.values(tally), 0);
             options = Object.keys(tally).filter(k => tally[k] === max);
         }
-        document.getElementById('finalize-instruction').innerText = (awardType === "社長賞") ? "候補者全員から社長賞を選んでください。" : "得票トップの候補者です。確定してください。";
+        document.getElementById('finalize-instruction').innerText = (awardType === "社長賞") ? "全候補者から選んでください。" : "得票トップの候補者です。";
 
         options.forEach(w => {
             const btn = document.createElement('div');
@@ -242,7 +266,7 @@
         else {
             const finalData = Object.entries(winnersToSave).map(([type, name]) => ({ judge_name: `SYSTEM_FINAL_${type}`, award_type: type, candidate_name: name }));
             await supabaseClient.from('votes').insert(finalData);
-            alert("全結果を保存しました。");
+            alert("結果を保存しました。右下の「●」から発表してください。");
             location.reload();
         }
     }
@@ -251,7 +275,6 @@
         const { data } = await supabaseClient.from('votes').select('*');
         const saved = data.filter(v => v.judge_name.startsWith('SYSTEM_FINAL_'));
         if(saved.length < 3) return alert("まだ確定作業が終わっていません。");
-        
         saved.forEach(s => { finalAwardData[s.award_type] = s.candidate_name; });
         currentResultIdx = 0;
         showPage('page-results');
@@ -265,16 +288,11 @@
         const nameDiv = document.getElementById('active-name');
         const nextBtn = document.getElementById('next-award-btn');
 
-        // 一旦非表示（重要：チラ見え防止）
         card.classList.remove('revealed');
         nameDiv.style.opacity = "0";
-        
-        // 文字をセット（カードが完全に閉じてから）
         setTimeout(() => {
             label.innerText = type;
             nameDiv.innerText = finalAwardData[type];
-            nameDiv.style.opacity = ""; // スタイル側のCSSアニメーションに委ねる
-            
             const colors = { "優秀賞": "var(--silver)", "最優秀賞": "var(--gold)", "社長賞": "var(--pres)" };
             card.style.borderColor = colors[type];
             label.style.color = colors[type];
@@ -285,23 +303,14 @@
     function revealWinner() {
         const card = document.getElementById('active-card');
         if(card.classList.contains('revealed')) return;
-        
         document.getElementById('bgm-loop').pause();
         document.getElementById('bgm-fanfare').currentTime = 0;
         document.getElementById('bgm-fanfare').play();
-        
         card.classList.add('revealed');
-        setTimeout(() => {
-            if(currentResultIdx < 2) document.getElementById('next-award-btn').style.display = 'block';
-        }, 1000);
+        setTimeout(() => { if(currentResultIdx < 2) document.getElementById('next-award-btn').style.display = 'block'; }, 1000);
     }
 
-    function nextAward() {
-        currentResultIdx++;
-        document.getElementById('bgm-loop').play();
-        renderAwardSlide();
-    }
-
+    function nextAward() { currentResultIdx++; document.getElementById('bgm-loop').play(); renderAwardSlide(); }
     async function resetDatabase() { if(confirm("リセットしますか？")) { await supabaseClient.from('votes').delete().neq('id', 0); location.reload(); } }
     function showPage(id) { document.querySelectorAll('.container').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
 
@@ -318,7 +327,6 @@
     }
     function initParticles() { for(let i=0; i<100; i++) particles.push(new P()); animate(); }
     function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animate); }
-
     initApp();
 </script>
 </body>
