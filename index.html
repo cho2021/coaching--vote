@@ -10,15 +10,19 @@
         :root { --gold: #d4af37; --silver: #c0c0c0; --pres: #e91e63; --dark: #020a18; --white: #e6f1ff; }
         body, html { margin: 0; padding: 0; width: 100%; min-height: 100%; background-color: #000; font-family: 'Noto Sans JP', sans-serif; color: var(--white); overflow-y: auto; overflow-x: hidden; }
         canvas { position: fixed; top: 0; left: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
+        
         .container { display: none; flex-direction: column; align-items: center; width: 100%; min-height: 100vh; padding-bottom: 150px; box-sizing: border-box; animation: fadeIn 0.5s ease; }
         .container.active { display: flex; }
+        
         .section-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 15px; padding: 30px; margin-bottom: 20px; width: 90%; max-width: 800px; backdrop-filter: blur(10px); }
         .title-h2 { font-size: 1.8rem; margin-bottom: 20px; color: var(--gold); border-bottom: 2px solid var(--gold); padding-bottom: 10px; font-weight: 900; }
+        
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
         .btn-choice { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 15px; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; font-weight: bold; }
         .btn-choice.selected { background: var(--gold); color: #000; font-weight: 900; box-shadow: 0 0 20px var(--gold); }
         .btn-choice.voted { background: #333 !important; color: #777 !important; border-color: #444 !important; cursor: not-allowed; }
         .btn-choice.voted::after { content: " (完了)"; font-size: 0.7rem; display: block; }
+        
         .submit-btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 20px; font-size: 1.4rem; font-weight: bold; background: var(--gold); border: none; border-radius: 50px; cursor: pointer; transition: 0.4s; }
         .submit-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
         
@@ -31,10 +35,18 @@
         .result-card {
             text-align: center; padding: 80px 40px; border: 5px solid var(--gold); background: radial-gradient(circle, #1a1a1a 0%, #000 100%);
             border-radius: 40px; width: 90%; max-width: 800px; cursor: pointer; transition: 0.5s; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            position: relative; overflow: hidden;
         }
         .winner-label { font-size: 4rem; font-weight: 900; letter-spacing: 0.2em; margin-bottom: 50px; color: var(--gold); text-shadow: 0 0 20px rgba(212, 175, 55, 0.5); }
-        .winner-name { font-size: 7rem; font-weight: 900; color: #fff; visibility: hidden; opacity: 0; transform: scale(0.1); transition: 1.2s cubic-bezier(0.17, 0.89, 0.32, 1.49); }
+        
+        /* 修正の肝：初期状態をhiddenにし、JSで上書きしない */
+        .winner-name { 
+            font-size: 7rem; font-weight: 900; color: #fff; 
+            visibility: hidden; opacity: 0; transform: scale(0.5); 
+            transition: 1.2s cubic-bezier(0.17, 0.89, 0.32, 1.49); 
+        }
         .result-card.revealed .winner-name { visibility: visible; opacity: 1; transform: scale(1); text-shadow: 0 0 50px var(--gold); }
+        
         .tap-hint { font-size: 1.4rem; color: #666; margin-top: 40px; letter-spacing: 0.5em; animation: flash 2s infinite; }
         @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
 
@@ -205,49 +217,78 @@
             alert("確定完了。右下の「● 集計」から発表画面へ。"); location.reload();
         }
     }
+
+    /* 発表画面のバグ修正版関数 */
     async function adminTally() { 
         const { data } = await supabaseClient.from('votes').select('*').eq('judge_name', 'FINAL_RESULT');
         if(!data || data.length < 3) return alert("管理者の確定作業が終わっていません。");
         data.forEach(s => { finalAwardData[s.award_type] = s.candidate_name; });
         currentResultIdx = 0; showPage('page-results'); renderAwardSlide();
     }
+
     function renderAwardSlide() {
         const type = resultSequence[currentResultIdx];
         const card = document.getElementById('active-card');
         const label = document.getElementById('active-label');
         const nameDiv = document.getElementById('active-name');
         const nextBtn = document.getElementById('next-award-btn');
+        const hint = document.getElementById('active-hint');
 
+        // 状態をリセット（重要：JSからのスタイル干渉を消す）
         card.classList.remove('revealed');
-        nameDiv.style.visibility = "hidden";
+        nameDiv.style.visibility = ""; 
+        hint.style.display = "block";
+        nextBtn.style.display = 'none';
         
+        // データをセット
         setTimeout(() => {
             label.innerText = type;
             nameDiv.innerText = finalAwardData[type];
             const colors = { "優秀賞": "var(--silver)", "最優秀賞": "var(--gold)", "社長賞": "var(--pres)" };
             card.style.borderColor = colors[type];
             label.style.color = colors[type];
-            nextBtn.style.display = 'none';
         }, 400);
     }
+
     function revealWinner() {
         const card = document.getElementById('active-card');
+        const hint = document.getElementById('active-hint');
         if(card.classList.contains('revealed')) return;
-        document.getElementById('bgm-loop').pause();
-        document.getElementById('bgm-fanfare').currentTime = 0;
-        document.getElementById('bgm-fanfare').play();
+
+        // BGM切り替え
+        const loop = document.getElementById('bgm-loop');
+        const fanfare = document.getElementById('bgm-fanfare');
+        loop.pause();
+        fanfare.currentTime = 0;
+        fanfare.play().catch(e => console.log("Audio play blocked"));
+
+        // 演出開始
         card.classList.add('revealed');
-        setTimeout(() => { if(currentResultIdx < 2) document.getElementById('next-award-btn').style.display = 'block'; }, 1500);
+        hint.style.display = "none"; // ヒントを消す
+
+        // 1.5秒後に次へボタンを出す
+        setTimeout(() => { 
+            if(currentResultIdx < 2) document.getElementById('next-award-btn').style.display = 'block'; 
+        }, 1500);
     }
-    function nextAward() { currentResultIdx++; document.getElementById('bgm-loop').play(); renderAwardSlide(); }
+
+    function nextAward() { 
+        currentResultIdx++; 
+        document.getElementById('bgm-loop').play().catch(e => {}); 
+        renderAwardSlide(); 
+    }
+
     async function resetDatabase() { if(confirm("リセットしますか？")) { await supabaseClient.from('votes').delete().neq('id', 0); location.reload(); } }
     function showPage(id) { document.querySelectorAll('.container').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
+    
+    // 背景パーティクル
     const canvas = document.getElementById('particleCanvas'); const ctx = canvas.getContext('2d'); let particles = [];
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } window.addEventListener('resize', resize); resize();
     class P { constructor() { this.init(); } init() { this.x = Math.random() * canvas.width; this.y = canvas.height + 10; this.size = Math.random() * 3 + 1; this.speedY = Math.random() * -1.2 - 0.3; this.opacity = Math.random() * 0.5 + 0.2; }
     update() { this.y += this.speedY; if (this.y < -10) this.init(); } draw() { ctx.fillStyle = `rgba(212, 175, 55, ${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); } }
     function initParticles() { for(let i=0; i<120; i++) particles.push(new P()); animate(); }
     function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animate); }
+    
     initApp();
 </script>
 </body>
