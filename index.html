@@ -3,31 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2025年度 コーチング大会 最終審査 | Q-MAX</title>
+    <title>2025年度 コーチング大会 総合管理システム | Q-MAX</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;700;900&display=swap" rel="stylesheet">
     <style>
-        :root { --gold: #d4af37; --silver: #c0c0c0; --president-color: #e91e63; --dark-blue: #020a18; --text-white: #e6f1ff; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; font-family: 'Noto Sans JP', sans-serif; color: var(--text-white); overflow: hidden; }
+        :root { --gold: #d4af37; --silver: #c0c0c0; --pres: #e91e63; --dark: #020a18; --white: #e6f1ff; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; font-family: 'Noto Sans JP', sans-serif; color: var(--white); overflow: hidden; }
         canvas { position: fixed; top: 0; left: 0; z-index: -1; }
-        .container { display: none; flex-direction: column; align-items: center; min-height: 100vh; width: 100%; padding-bottom: 50px; animation: fadeIn 1s ease; }
+        .container { display: none; flex-direction: column; align-items: center; min-height: 100vh; width: 100%; padding-bottom: 50px; animation: fadeIn 0.5s ease; overflow-y: auto; }
         .container.active { display: flex; }
         .section-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 15px; padding: 30px; margin-bottom: 20px; width: 90%; max-width: 800px; backdrop-filter: blur(10px); }
         .title-h2 { font-size: 1.5rem; margin-bottom: 20px; color: var(--gold); border-bottom: 1px solid var(--gold); padding-bottom: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
         .btn-choice { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 15px; border-radius: 8px; cursor: pointer; transition: 0.3s; text-align: center; }
         .btn-choice:hover:not(.voted) { background: rgba(212, 175, 55, 0.2); border-color: var(--gold); }
-        .btn-choice.selected { background: var(--gold); color: #000; font-weight: 700; box-shadow: 0 0 15px var(--gold); }
+        .btn-choice.selected { background: var(--gold); color: #000; font-weight: bold; box-shadow: 0 0 15px var(--gold); }
         .btn-choice.voted { background: #333 !important; color: #777 !important; border-color: #444 !important; cursor: not-allowed; }
-        .submit-btn { display: block; width: 100%; max-width: 400px; margin: 30px auto; padding: 20px; font-size: 1.4rem; font-weight: 900; background: var(--gold); border: none; border-radius: 50px; cursor: pointer; transition: 0.4s; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .submit-btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 20px; font-size: 1.4rem; font-weight: bold; background: var(--gold); border: none; border-radius: 50px; cursor: pointer; transition: 0.4s; }
         .submit-btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .tally-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #333; }
         .result-card { text-align: center; padding: 50px; border: 2px solid var(--gold); background: radial-gradient(circle, #1a1a1a 0%, #000 100%); border-radius: 20px; margin-top: 30px; width: 90%; max-width: 600px; animation: scaleUp 1s ease forwards; }
         .winner-name { font-size: 4rem; font-weight: 900; color: #fff; text-shadow: 0 0 30px var(--gold); margin: 20px 0; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .admin-trigger { position: fixed; bottom: 10px; right: 10px; opacity: 0.05; cursor: pointer; color: white; }
-        /* タイブレーク用スタイル */
-        #tie-breaker-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:3000; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
     </style>
 </head>
 <body>
@@ -36,25 +35,31 @@
     <audio id="bgm-fanfare"><source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" type="audio/mpeg"></audio>
     <canvas id="particleCanvas"></canvas>
 
-    <!-- 1. 審査員選択 -->
+    <!-- 1. 審査員選択 & 管理ボタン -->
     <div id="page-judge" class="container active">
         <header style="margin-top:50px; text-align: center;">
             <div style="font-size: 1rem; color: var(--gold); letter-spacing: 0.3em; margin-bottom: 10px;">株式会社キューマックス</div>
             <h1>審査員選択</h1>
         </header>
         <div class="section-box">
-            <div class="title-h2">お名前を選択してください</div>
             <div class="grid" id="judge-grid"></div>
         </div>
-        <button class="submit-btn" style="background:none; border:1px solid #444; color:#666; font-size:0.8rem; margin-top:100px;" onclick="resetDatabase()">リセット</button>
+        <div id="admin-tools" style="display:none; margin-top: 50px;">
+            <button class="submit-btn" onclick="startAdminFlow()" style="background:#fff; color:#000;">結果を確認・確定する（管理者）</button>
+            <button onclick="resetDatabase()" style="background:none; border:none; color:red; cursor:pointer; width:100%;">全リセット</button>
+        </div>
     </div>
 
     <!-- 2. 投票画面 -->
     <div id="page-voting" class="container">
         <header style="margin-top:50px; text-align: center;"><h1 id="vote-header-name">投票</h1></header>
-        <div id="vote-board-section" style="display:none; width: 100%;">
-            <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">最優秀賞 選出</div><div class="grid candidate-grid" data-award="最優秀賞"></div></div>
-            <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">優秀賞 選出</div><div class="grid candidate-grid" data-award="優秀賞"></div></div>
+        <div class="section-box">
+            <div class="title-h2">最優秀賞 選出</div>
+            <div class="grid candidate-grid" data-award="最優秀賞"></div>
+        </div>
+        <div class="section-box">
+            <div class="title-h2">優秀賞 選出</div>
+            <div class="grid candidate-grid" data-award="優秀賞"></div>
         </div>
         <div id="vote-pres-section" style="display:none; width: 100%;">
             <div class="section-box" style="margin: 0 auto 20px;"><div class="title-h2">社長賞 選出</div><div class="grid candidate-grid" data-award="社長賞"></div></div>
@@ -62,26 +67,37 @@
         <button class="submit-btn" id="final-submit-btn" disabled onclick="sendToDatabase()">投票を確定する</button>
     </div>
 
-    <!-- 3. 完了 -->
-    <div id="page-thanks" class="container">
-        <div class="section-box" style="text-align:center; margin-top:100px;">
-            <h2>投票完了</h2><p>ご協力ありがとうございました。</p>
-            <button onclick="location.reload()" style="background:none; border:1px solid #444; color:#666; padding:10px 20px; cursor:pointer;">トップへ戻る</button>
+    <!-- 3. 点数一覧画面 -->
+    <div id="page-raw-tally" class="container">
+        <div class="section-box">
+            <div class="title-h2">現在の得票状況</div>
+            <div id="raw-tally-content"></div>
+            <button class="submit-btn" onclick="proceedToFinalize('優秀賞')">次へ（当選者の確定）</button>
         </div>
     </div>
 
-    <!-- 4. 最終結果発表 -->
-    <div id="page-results" class="container">
-        <header style="margin-top:50px; text-align: center;"><h1>最終選考結果</h1></header>
-        <div id="results-display" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
+    <!-- 4. 当選者確定画面 (タイブレーク対応) -->
+    <div id="page-finalize-winner" class="container">
+        <div class="section-box">
+            <div class="title-h2" id="finalize-title">賞の確定</div>
+            <p id="finalize-instruction"></p>
+            <div class="grid" id="finalize-choice-area"></div>
+            <button class="submit-btn" id="finalize-confirm-btn" disabled onclick="confirmWinner()">この人を確定する</button>
+        </div>
     </div>
 
-    <!-- 同点時のタイブレーク・オーバーレイ -->
-    <div id="tie-breaker-overlay">
-        <h2 style="color:var(--gold); font-size:2rem;">同点の結果が出ています</h2>
-        <p id="tie-instruction">対象の賞の当選者を一人選択してください</p>
-        <div id="tie-choice-area" class="grid" style="margin:30px 0;"></div>
-        <button class="submit-btn" id="tie-confirm-btn" disabled onclick="finalizeWithTieBreaker()">選考を確定する</button>
+    <!-- 5. 最終保存 & 待機 -->
+    <div id="page-save-complete" class="container">
+        <div class="section-box" style="text-align:center; margin-top:100px;">
+            <h2>全結果の確定完了</h2>
+            <p>結果が保存されました。<br>右下の「● 集計」を押して発表を開始してください。</p>
+        </div>
+    </div>
+
+    <!-- 6. 最終結果発表 (演出) -->
+    <div id="page-results" class="container">
+        <header style="margin-top:50px; text-align: center;"><h1>2025年度 最終結果</h1></header>
+        <div id="results-display" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
     </div>
 
     <div class="admin-trigger" onclick="adminTally()">● 集計</div>
@@ -95,11 +111,17 @@
     const candidates = ["牟田 理菜", "ユベール ミカエル", "中村 美穂", "黄 卓賢", "石田 萌々華", "三浦 健二", "松井 未来"];
     let myName = "";
     let myVotes = {};
-    let finalTallyResults = {};
+    let rawData = [];
+    let winnersToSave = { "最優秀賞": null, "優秀賞": null, "社長賞": null };
+    let currentStepAward = "";
 
     async function initApp() {
-        const { data } = await supabaseClient.from('votes').select('judge_name');
-        const votedJudges = data ? [...new Set(data.map(d => d.judge_name))] : [];
+        const { data } = await supabaseClient.from('votes').select('*');
+        const votedJudges = data ? [...new Set(data.map(d => d.judge_name).filter(n => !n.startsWith('SYSTEM_')))] : [];
+        
+        // 全員投票が終わっていたら管理ボタンを出す
+        if(votedJudges.length >= 7) document.getElementById('admin-tools').style.display = 'block';
+
         const jGrid = document.getElementById('judge-grid');
         jGrid.innerHTML = "";
         judges.forEach(j => {
@@ -113,18 +135,13 @@
 
         document.querySelectorAll('.candidate-grid').forEach(grid => {
             const award = grid.dataset.award;
-            grid.innerHTML = "";
             candidates.forEach(c => {
                 const btn = document.createElement('div');
                 btn.className = 'btn-choice'; btn.innerText = c;
                 btn.onclick = () => {
-                    // 同一人物選択防止ロジック
                     if(myName !== "吉武 直志") {
-                        const otherAward = award === "最優秀賞" ? "優秀賞" : "最優秀賞";
-                        if(myVotes[otherAward] === c) {
-                            alert("最優秀賞と優秀賞に同じ人物は選べません。");
-                            return;
-                        }
+                        const other = award === "最優秀賞" ? "優秀賞" : "最優秀賞";
+                        if(myVotes[other] === c) { alert("同一人物は選べません。"); return; }
                     }
                     grid.querySelectorAll('.btn-choice').forEach(b => b.classList.remove('selected'));
                     btn.classList.add('selected');
@@ -138,13 +155,13 @@
     }
 
     function startVote(name) {
-        myName = name; myVotes = {};
-        document.getElementById('bgm-loop').play();
-        document.getElementById('vote-header-name').innerText = name + " 様";
+        myName = name;
         showPage('page-voting');
+        document.getElementById('vote-header-name').innerText = name + " 様";
         const isPres = (name === "吉武 直志");
         document.getElementById('vote-pres-section').style.display = isPres ? 'block' : 'none';
-        document.getElementById('vote-board-section').style.display = isPres ? 'none' : 'block';
+        document.getElementById('page-voting').querySelectorAll('.section-box')[0].style.display = isPres ? 'none' : 'block';
+        document.getElementById('page-voting').querySelectorAll('.section-box')[1].style.display = isPres ? 'none' : 'block';
     }
 
     function updateSubmitBtn() {
@@ -154,120 +171,92 @@
     }
 
     async function sendToDatabase() {
-        if(!confirm("確定しますか？")) return;
         const insertData = Object.entries(myVotes).map(([type, cand]) => ({
             judge_name: myName, award_type: type, candidate_name: cand
         }));
-        const { error } = await supabaseClient.from('votes').insert(insertData);
-        if(error) alert("送信失敗"); else showPage('page-thanks');
-    }
-
-    async function adminTally() {
-        const { data, error } = await supabaseClient.from('votes').select('*');
-        if(error) return alert("取得失敗");
-
-        const tally = { "最優秀賞": {}, "優秀賞": {}, "社長賞": "未選出" };
-        data.forEach(v => {
-            if(v.award_type === "社長賞") tally["社長賞"] = v.candidate_name;
-            else tally[v.award_type][v.candidate_name] = (tally[v.award_type][v.candidate_name] || 0) + 1;
-        });
-
-        // 勝者判定ロジック
-        const determineWinners = (obj) => {
-            const keys = Object.keys(obj);
-            if(!keys.length) return { winners: ["未投票"], isTie: false };
-            const max = Math.max(...Object.values(obj));
-            const winners = keys.filter(k => obj[k] === max);
-            return { winners, isTie: winners.length > 1 };
-        };
-
-        const grandRes = determineWinners(tally["最優秀賞"]);
-        const exclRes = determineWinners(tally["優秀賞"]);
-
-        finalTallyResults = { 
-            grand: grandRes.winners[0], 
-            excl: exclRes.winners[0], 
-            pres: tally["社長賞"],
-            needsGrandTie: grandRes.isTie,
-            needsExclTie: exclRes.isTie,
-            tieGrandOptions: grandRes.winners,
-            tieExclOptions: exclRes.winners
-        };
-
-        if(grandRes.isTie || exclRes.isTie) {
-            showTieBreakerUI();
-        } else {
-            renderFinalPage();
-        }
-    }
-
-    function showTieBreakerUI() {
-        const overlay = document.getElementById('tie-breaker-overlay');
-        const area = document.getElementById('tie-choice-area');
-        area.innerHTML = "";
-        overlay.style.display = "flex";
-
-        if(finalTallyResults.needsGrandTie) {
-            document.getElementById('tie-instruction').innerText = "最優秀賞が同点です。一人選んでください。";
-            finalTallyResults.tieGrandOptions.forEach(opt => {
-                const b = document.createElement('div'); b.className = "btn-choice"; b.innerText = opt;
-                b.onclick = () => { 
-                    area.querySelectorAll('.btn-choice').forEach(x => x.classList.remove('selected'));
-                    b.classList.add('selected');
-                    finalTallyResults.grand = opt;
-                    document.getElementById('tie-confirm-btn').disabled = false;
-                };
-                area.appendChild(b);
-            });
-        } else if(finalTallyResults.needsExclTie) {
-            document.getElementById('tie-instruction').innerText = "優秀賞が同点です。一人選んでください。";
-            finalTallyResults.tieExclOptions.forEach(opt => {
-                const b = document.createElement('div'); b.className = "btn-choice"; b.innerText = opt;
-                b.onclick = () => { 
-                    area.querySelectorAll('.btn-choice').forEach(x => x.classList.remove('selected'));
-                    b.classList.add('selected');
-                    finalTallyResults.excl = opt;
-                    document.getElementById('tie-confirm-btn').disabled = false;
-                };
-                area.appendChild(b);
-            });
-        }
-    }
-
-    function finalizeWithTieBreaker() {
-        // もし両方同点だった場合、最優秀のあとに優秀もやる
-        if(finalTallyResults.needsGrandTie) {
-            finalTallyResults.needsGrandTie = false;
-            if(finalTallyResults.needsExclTie) {
-                showTieBreakerUI(); // 次のタイブレークへ
-                return;
-            }
-        }
-        document.getElementById('tie-breaker-overlay').style.display = "none";
-        renderFinalPage();
-    }
-
-    function renderFinalPage() {
-        document.getElementById('bgm-loop').pause();
-        document.getElementById('bgm-fanfare').play();
-        showPage('page-results');
-        document.getElementById('results-display').innerHTML = `
-            <div class="result-card" style="border-color:var(--silver)"><div class="winner-label">優秀賞</div><div class="winner-name">${finalTallyResults.excl}</div></div>
-            <div class="result-card"><div class="winner-label">最優秀賞</div><div class="winner-name">${finalTallyResults.grand}</div></div>
-            <div class="result-card" style="border-color:var(--president-color)"><div class="winner-label">社長賞</div><div class="winner-name">${finalTallyResults.pres}</div></div>`;
-    }
-
-    async function resetDatabase() {
-        if(!confirm("データを全消去します。よろしいですか？")) return;
-        await supabaseClient.from('votes').delete().neq('id', 0);
+        await supabaseClient.from('votes').insert(insertData);
         location.reload();
     }
 
-    function showPage(id) {
-        document.querySelectorAll('.container').forEach(p => p.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        window.scrollTo(0,0);
+    async function startAdminFlow() {
+        const { data } = await supabaseClient.from('votes').select('*');
+        rawData = data;
+        showPage('page-raw-tally');
+        
+        let html = "";
+        ["最優秀賞", "優秀賞"].forEach(award => {
+            html += `<h3 style='color:var(--gold)'>${award}の得票</h3>`;
+            candidates.forEach(c => {
+                const count = data.filter(v => v.award_type === award && v.candidate_name === c).length;
+                html += `<div class='tally-row'><span>${c}</span><span>${count} 票</span></div>`;
+            });
+        });
+        document.getElementById('raw-tally-content').innerHTML = html;
     }
+
+    function proceedToFinalize(awardType) {
+        currentStepAward = awardType;
+        showPage('page-finalize-winner');
+        document.getElementById('finalize-title').innerText = `${awardType}の確定`;
+        
+        const tally = {};
+        rawData.filter(v => v.award_type === awardType && !v.judge_name.startsWith('SYSTEM_')).forEach(v => {
+            tally[v.candidate_name] = (tally[v.candidate_name] || 0) + 1;
+        });
+
+        const max = Math.max(...Object.values(tally), 0);
+        const winners = Object.keys(tally).filter(k => tally[k] === max);
+
+        const area = document.getElementById('finalize-choice-area');
+        area.innerHTML = "";
+        document.getElementById('finalize-confirm-btn').disabled = true;
+
+        winners.forEach(w => {
+            const btn = document.createElement('div');
+            btn.className = 'btn-choice'; btn.innerText = w;
+            btn.onclick = () => {
+                area.querySelectorAll('.btn-choice').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                winnersToSave[awardType] = w;
+                document.getElementById('finalize-confirm-btn').disabled = false;
+            };
+            area.appendChild(btn);
+        });
+    }
+
+    async function confirmWinner() {
+        if(currentStepAward === "優秀賞") proceedToFinalize("最優秀賞");
+        else if(currentStepAward === "最優秀賞") {
+            const presVote = rawData.find(v => v.award_type === "社長賞");
+            winnersToSave["社長賞"] = presVote ? presVote.candidate_name : "未選出";
+            // 全てをSYSTEMとして保存
+            const finalData = Object.entries(winnersToSave).map(([type, name]) => ({
+                judge_name: `SYSTEM_FINAL_${type}`, award_type: type, candidate_name: name
+            }));
+            await supabaseClient.from('votes').insert(finalData);
+            showPage('page-save-complete');
+        }
+    }
+
+    async function adminTally() {
+        const { data } = await supabaseClient.from('votes').select('*');
+        const saved = data.filter(v => v.judge_name.startsWith('SYSTEM_FINAL_'));
+        if(saved.length < 3) return alert("まだ確定作業が終わっていません");
+
+        document.getElementById('bgm-loop').pause();
+        document.getElementById('bgm-fanfare').play();
+        showPage('page-results');
+        
+        const getWinner = (type) => saved.find(s => s.judge_name === `SYSTEM_FINAL_${type}`).candidate_name;
+
+        document.getElementById('results-display').innerHTML = `
+            <div class="result-card" style="border-color:var(--silver)"><div class="winner-label">優秀賞</div><div class="winner-name">${getWinner("優秀賞")}</div></div>
+            <div class="result-card"><div class="winner-label">最優秀賞</div><div class="winner-name">${getWinner("最優秀賞")}</div></div>
+            <div class="result-card" style="border-color:var(--pres)"><div class="winner-label">社長賞</div><div class="winner-name">${getWinner("社長賞")}</div></div>`;
+    }
+
+    async function resetDatabase() { if(confirm("全消去しますか？")) { await supabaseClient.from('votes').delete().neq('id', 0); location.reload(); } }
+    function showPage(id) { document.querySelectorAll('.container').forEach(p => p.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
 
     const canvas = document.getElementById('particleCanvas');
     const ctx = canvas.getContext('2d');
@@ -280,7 +269,7 @@
         update() { this.y += this.speedY; if (this.y < -10) this.init(); }
         draw() { ctx.fillStyle = `rgba(212, 175, 55, ${this.opacity})`; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill(); }
     }
-    function initParticles() { particles = []; for(let i=0; i<120; i++) particles.push(new P()); animate(); }
+    function initParticles() { for(let i=0; i<100; i++) particles.push(new P()); animate(); }
     function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.update(); p.draw(); }); requestAnimationFrame(animate); }
 
     initApp();
